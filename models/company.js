@@ -4,8 +4,8 @@ import mongoose from "mongoose";
 const companySchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
-    slug: { type: String, unique: true, sparse: true },     // e.g. "mtumrah"
-    domain: { type: String, unique: true, sparse: true },   // e.g. "mtumrah.com"
+    slug: { type: String, unique: true, sparse: true },     // e.g. "holytravel"
+    domain: { type: String, unique: true, sparse: true },   // e.g. "holytravel.com"
     email: { type: String },
     phone: { type: String },
     address: { type: String },

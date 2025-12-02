@@ -15,13 +15,16 @@ export const loginUser = asyncHandler(async (req, res) => {
     throw new Error("Email and password are required");
   }
 
+  // Normalize email to lowercase for case-insensitive lookup
+  const normalizedEmail = email.toLowerCase().trim();
+
   // Try User model first
-  let user = await User.findOne({ email }).select("+passwordHash");
+  let user = await User.findOne({ email: normalizedEmail }).select("+passwordHash");
   
   // If not found in User, try Agent model
   if (!user) {
     const { default: Agent } = await import("../models/Agent.js");
-    const agent = await Agent.findOne({ email }).select("+passwordHash");
+    const agent = await Agent.findOne({ email: normalizedEmail }).select("+passwordHash");
     
     if (agent) {
       // Check password for agent

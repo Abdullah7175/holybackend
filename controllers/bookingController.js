@@ -74,7 +74,7 @@ export const getBookingPdf = async (req, res) => {
     doc.fillColor('#ffffff')
        .fontSize(18)
        .font('Helvetica-Bold')
-       .text('MARWAH TRAVELS UMRAH', 50, 20, { align: 'center' });
+       .text('HOLY TRAVEL', 50, 20, { align: 'center' });
     doc.fontSize(10)
        .font('Helvetica')
        .text(`Booking ID: ${booking._id}`, 50, 45, { align: 'center' });
@@ -87,12 +87,12 @@ export const getBookingPdf = async (req, res) => {
     const bottomY = doc.page.height - 40;
     doc.fontSize(8)
        .fillColor('#666666')
-       .text(
-         'MARWAH TRAVELS UMRAH | Email: info@marwahtravels.com | Phone: +1-XXX-XXX-XXXX',
-         50,
-         bottomY,
-         { align: 'center', width: doc.page.width - 100 }
-       );
+      .text(
+        'HOLY TRAVEL | Email: info@holytravel.com | Phone: +1-XXX-XXX-XXXX',
+        50,
+        bottomY,
+        { align: 'center', width: doc.page.width - 100 }
+      );
     doc.fillColor('#000000');
   };
 
