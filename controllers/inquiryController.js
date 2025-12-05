@@ -187,10 +187,10 @@ export const createInquiry = async (req, res) => {
 
 // Helper function to fetch external inquiries from mtumrah API
 const fetchExternalInquiries = async () => {
-  // Try to get the API URL from environment or default to mtumrah.com
+  // Try to get the API URL from environment or default to holytravelsandtour.com
   const externalApiUrl = process.env.EXTERNAL_INQUIRIES_API_URL || 
     process.env.MTUMRAH_API_URL || 
-    'https://www.mtumrah.com/api/inquiries';
+    'https://www.holytravelsandtour.com/api/inquiries';
   
   console.log(`Attempting to fetch external inquiries from: ${externalApiUrl}`);
   
