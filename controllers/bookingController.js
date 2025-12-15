@@ -77,7 +77,7 @@ export const getBookingPdf = async (req, res) => {
        .text('Holy Travels and Tour', 50, 20, { align: 'center' });
     doc.fontSize(10)
        .font('Helvetica')
-       .text('Your Personalized Luxury Umrah Partner 🕋', 50, 38, { align: 'center' });
+       .text('Your Personalized Luxury Umrah Partner', 50, 38, { align: 'center' });
     doc.fontSize(9)
        .font('Helvetica')
        .text(`Booking ID: ${booking._id}`, 50, 52, { align: 'center' });
