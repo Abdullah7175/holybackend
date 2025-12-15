@@ -191,9 +191,9 @@ export const updateAgent = async (req, res) => {
     if (typeof phone !== "undefined") agent.phone = phone;
     if (password) agent.passwordHash = await bcrypt.hash(password, 12);
     if (typeof username !== "undefined") agent.username = username;
-    if (typeof department !== "undefined") agent.department = department;
-    if (typeof monthlyTarget !== "undefined") agent.monthlyTarget = monthlyTarget;
-    if (typeof commissionRate !== "undefined") agent.commissionRate = commissionRate;
+    if (typeof department !== "undefined" && department !== null && department !== '') agent.department = department;
+    if (typeof monthlyTarget !== "undefined" && monthlyTarget !== null && monthlyTarget !== '') agent.monthlyTarget = Number(monthlyTarget);
+    if (typeof commissionRate !== "undefined" && commissionRate !== null && commissionRate !== '') agent.commissionRate = Number(commissionRate);
 
     await agent.save();
     return res.json(sanitize(agent));

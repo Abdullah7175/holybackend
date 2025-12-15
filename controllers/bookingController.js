@@ -74,10 +74,13 @@ export const getBookingPdf = async (req, res) => {
     doc.fillColor('#ffffff')
        .fontSize(18)
        .font('Helvetica-Bold')
-       .text('HOLY TRAVEL', 50, 20, { align: 'center' });
+       .text('Holy Travels and Tour', 50, 20, { align: 'center' });
     doc.fontSize(10)
        .font('Helvetica')
-       .text(`Booking ID: ${booking._id}`, 50, 45, { align: 'center' });
+       .text('Your Personalized Luxury Umrah Partner 🕋', 50, 38, { align: 'center' });
+    doc.fontSize(9)
+       .font('Helvetica')
+       .text(`Booking ID: ${booking._id}`, 50, 52, { align: 'center' });
     doc.fillColor('#000000');
     doc.moveDown(3);
   };
@@ -88,7 +91,7 @@ export const getBookingPdf = async (req, res) => {
     doc.fontSize(8)
        .fillColor('#666666')
       .text(
-        'HOLY TRAVEL | Email: info@holytravel.com | Phone: +1-XXX-XXX-XXXX',
+        'Holy Travels and Tour | Email: info@holytravelsandtour.com | Phone: +1 415-791-5351 | www.holytravelsandtour.com',
         50,
         bottomY,
         { align: 'center', width: doc.page.width - 100 }
@@ -144,9 +147,26 @@ export const getBookingPdf = async (req, res) => {
   doc.fontSize(14).font('Helvetica-Bold').text('TRAVEL DATES', { underline: true });
   doc.moveDown(0.5);
   doc.fontSize(11).font('Helvetica');
-  doc.text(`Booking Date: ${booking.date ? new Date(booking.date).toISOString().slice(0, 10) : "—"}`);
-  doc.text(`Departure: ${booking.departureDate ? new Date(booking.departureDate).toISOString().slice(0, 10) : "—"}`);
-  doc.text(`Return: ${booking.returnDate ? new Date(booking.returnDate).toISOString().slice(0, 10) : "—"}`);
+  
+  // Format dates properly
+  const formatDate = (dateValue) => {
+    if (!dateValue) return "—";
+    try {
+      const date = new Date(dateValue);
+      if (isNaN(date.getTime())) return "—";
+      return date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+    } catch {
+      return String(dateValue);
+    }
+  };
+  
+  doc.text(`Booking Date: ${formatDate(booking.date)}`);
+  doc.text(`Departure: ${formatDate(booking.departureDate)}`);
+  doc.text(`Return: ${formatDate(booking.returnDate)}`);
   doc.text(`Package: ${booking.package || "—"}`);
   doc.moveDown(1.5);
 
@@ -166,8 +186,14 @@ export const getBookingPdf = async (req, res) => {
   const flightClass = booking.flight?.flightClass || booking.flightClass || 'economy';
   doc.text(`Class: ${flightClass}`);
   
-  if (booking.pnr) {
-    doc.text(`PNR: ${booking.pnr}`);
+  // Handle multiple PNRs
+  const pnrs = booking.pnrs || booking.flight?.pnrs || booking.flights?.pnrs || (booking.pnr ? [booking.pnr] : []);
+  if (pnrs && pnrs.length > 0) {
+    if (pnrs.length === 1) {
+      doc.text(`PNR: ${pnrs[0]}`);
+    } else {
+      doc.text(`PNRs: ${pnrs.join(', ')}`);
+    }
   }
   
   // Flight Itinerary
@@ -508,7 +534,8 @@ export const createBooking = async (req, res) => {
 
       // revision sections (optional)
       pnr: pnr ? String(pnr).toUpperCase() : undefined,
-      flights: flights || undefined,
+      pnrs: req.body.pnrs || (pnr ? [String(pnr).toUpperCase()] : undefined), // Support multiple PNRs
+      flights: flights ? { ...flights, pnrs: req.body.pnrs || flights.pnrs } : undefined,
       hotels: Array.isArray(hotels) ? hotels : undefined,
       visas: visas || undefined,
       transportation: transportation || undefined,
@@ -648,6 +675,23 @@ export const updateBooking = async (req, res) => {
     }
     booking.pnr = cleanPNR;
   }
+  
+  // Validate multiple PNRs if provided
+  if (req.body?.pnrs && Array.isArray(req.body.pnrs)) {
+    const cleanPnrs = req.body.pnrs
+      .map(p => String(p).replace(/[^A-Za-z0-9]/g, "").toUpperCase())
+      .filter(p => p.length === 6);
+    if (cleanPnrs.length !== req.body.pnrs.length) {
+      return res
+        .status(400)
+        .json({ message: "All PNRs must be exactly 6 alphanumeric characters." });
+    }
+    booking.pnrs = cleanPnrs;
+    // Set primary PNR if not already set
+    if (!booking.pnr && cleanPnrs.length > 0) {
+      booking.pnr = cleanPnrs[0];
+    }
+  }
 
   // ORIGINAL FIELDS
   booking.customerName = req.body.customerName ?? booking.customerName;
@@ -667,6 +711,16 @@ export const updateBooking = async (req, res) => {
   if (req.body.costing !== undefined) booking.costing = req.body.costing;
   if (req.body.flightPayments !== undefined)
     booking.flightPayments = req.body.flightPayments;
+  
+  // Support multiple PNRs
+  if (req.body.pnrs !== undefined) booking.pnrs = req.body.pnrs;
+  if (req.body.pnr !== undefined) {
+    booking.pnr = req.body.pnr;
+    // If pnrs not provided but pnr is, set pnrs to [pnr]
+    if (!req.body.pnrs && req.body.pnr) {
+      booking.pnrs = [req.body.pnr];
+    }
+  }
   
   // HOTEL LEGACY FIELD
   if (req.body.hotel !== undefined) booking.hotel = req.body.hotel;

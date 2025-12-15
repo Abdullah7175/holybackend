@@ -359,12 +359,26 @@ const fetchExternalInquiries = async () => {
       };
     });
   } catch (error) {
-    console.error('Failed to fetch external inquiries:', error.message);
-    if (error.response) {
-      console.error('Error status:', error.response.status);
-      console.error('Error body:', JSON.stringify(error.response.body).substring(0, 500));
-    } else if (error.request) {
-      console.error('No response received from external API');
+    // Only log errors if they're not 404 (endpoint doesn't exist) or timeout (expected in some cases)
+    const is404 = error.response?.status === 404;
+    const isTimeout = error.message?.includes('timeout') || error.message?.includes('ETIMEDOUT');
+    
+    if (!is404 && !isTimeout) {
+      console.error('Failed to fetch external inquiries:', error.message);
+      if (error.response) {
+        console.error('Error status:', error.response.status);
+        console.error('Error body:', JSON.stringify(error.response.body).substring(0, 500));
+      } else if (error.request) {
+        console.error('No response received from external API');
+      }
+    } else if (is404) {
+      // Log 404 only once per hour to reduce log noise
+      const last404Log = fetchExternalInquiries.last404Log || 0;
+      const now = Date.now();
+      if (now - last404Log > 3600000) { // 1 hour
+        console.warn('External inquiries API endpoint not found (404). This is expected if the endpoint is not configured.');
+        fetchExternalInquiries.last404Log = now;
+      }
     }
     return []; // Return empty array on error
   }
