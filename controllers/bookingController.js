@@ -68,6 +68,16 @@ export const getBookingPdf = async (req, res) => {
   });
   doc.pipe(res);
 
+  // Format date for display: use date-only (YYYY-MM-DD) or format in Asia/Karachi to avoid timezone shift
+  const formatDateOnly = (val) => {
+    if (val == null || val === "") return "—";
+    const s = String(val).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const d = new Date(val);
+    if (Number.isNaN(d.getTime())) return s.slice(0, 10) || "—";
+    return d.toLocaleDateString("en-CA", { timeZone: "Asia/Karachi", year: "numeric", month: "2-digit", day: "2-digit" });
+  };
+
   // Helper function for header
   const addHeader = () => {
     doc.rect(0, 0, doc.page.width, 60).fill('#000000');
@@ -148,25 +158,9 @@ export const getBookingPdf = async (req, res) => {
   doc.moveDown(0.5);
   doc.fontSize(11).font('Helvetica');
   
-  // Format dates properly
-  const formatDate = (dateValue) => {
-    if (!dateValue) return "—";
-    try {
-      const date = new Date(dateValue);
-      if (isNaN(date.getTime())) return "—";
-      return date.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      });
-    } catch {
-      return String(dateValue);
-    }
-  };
-  
-  doc.text(`Booking Date: ${formatDate(booking.date)}`);
-  doc.text(`Departure: ${formatDate(booking.departureDate)}`);
-  doc.text(`Return: ${formatDate(booking.returnDate)}`);
+  doc.text(`Booking Date: ${formatDateOnly(booking.date)}`);
+  doc.text(`Departure: ${formatDateOnly(booking.departureDate)}`);
+  doc.text(`Return: ${formatDateOnly(booking.returnDate)}`);
   doc.text(`Package: ${booking.package || "—"}`);
   doc.moveDown(1.5);
 
@@ -222,8 +216,8 @@ export const getBookingPdf = async (req, res) => {
       doc.fontSize(10).text(`Hotel ${index + 1}:`);
       doc.fontSize(9).text(`  Name: ${hotel.name || hotel.hotelName || "—"}`);
       doc.fontSize(9).text(`  Room Type: ${hotel.roomType || "—"}`);
-      doc.fontSize(9).text(`  Check-in: ${hotel.checkIn || "—"}`);
-      doc.fontSize(9).text(`  Check-out: ${hotel.checkOut || "—"}`);
+      doc.fontSize(9).text(`  Check-in: ${formatDateOnly(hotel.checkIn)}`);
+      doc.fontSize(9).text(`  Check-out: ${formatDateOnly(hotel.checkOut)}`);
       doc.moveDown(0.5);
     });
   }
@@ -428,6 +422,16 @@ export const getBookingPdf = async (req, res) => {
   doc.end(); // stream completes the response
 };
 
+// Normalize to date-only YYYY-MM-DD (avoids timezone shift for check-in/check-out)
+function toDateOnlyString(val) {
+  if (val == null || val === "") return undefined;
+  const s = String(val).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const d = new Date(val);
+  if (Number.isNaN(d.getTime())) return s.slice(0, 10) || undefined;
+  return d.toLocaleDateString("en-CA", { timeZone: "Asia/Karachi", year: "numeric", month: "2-digit", day: "2-digit" });
+}
+
 // --------------------------------- CREATE -----------------------------------
 export const createBooking = async (req, res) => {
   try {
@@ -532,19 +536,27 @@ export const createBooking = async (req, res) => {
       paymentDue,
       payment,
 
-      // revision sections (optional)
+      // revision sections (optional) — normalize hotel dates to YYYY-MM-DD
       pnr: pnr ? String(pnr).toUpperCase() : undefined,
       pnrs: req.body.pnrs || (pnr ? [String(pnr).toUpperCase()] : undefined), // Support multiple PNRs
       flights: flights ? { ...flights, pnrs: req.body.pnrs || flights.pnrs } : undefined,
-      hotels: Array.isArray(hotels) ? hotels : undefined,
+      hotels: Array.isArray(hotels) ? hotels.map((h) => ({
+        ...h,
+        checkIn: toDateOnlyString(h.checkIn) ?? h.checkIn,
+        checkOut: toDateOnlyString(h.checkOut) ?? h.checkOut,
+      })) : undefined,
       visas: visas || undefined,
       transportation: transportation || undefined,
       transport: transport || undefined,
       costing: costing || undefined,
       flightPayments: flightPayments || undefined,
       
-      // Legacy fields
-      hotel: hotel || undefined,
+      // Legacy fields — normalize dates to YYYY-MM-DD
+      hotel: hotel ? {
+        ...hotel,
+        checkIn: toDateOnlyString(hotel.checkIn) ?? hotel.checkIn,
+        checkOut: toDateOnlyString(hotel.checkOut) ?? hotel.checkOut,
+      } : undefined,
       visa: visa || undefined,
       flight: flight || undefined,
     });
@@ -701,9 +713,17 @@ export const updateBooking = async (req, res) => {
   booking.status = req.body.status ?? booking.status;
   if (req.body.agent !== undefined) booking.agent = req.body.agent;
 
-  // REVISION SECTIONS (replace wholesale if provided)
+  // REVISION SECTIONS (replace wholesale if provided) — normalize hotel dates
   if (req.body.flights !== undefined) booking.flights = req.body.flights;
-  if (req.body.hotels !== undefined) booking.hotels = req.body.hotels;
+  if (req.body.hotels !== undefined) {
+    booking.hotels = Array.isArray(req.body.hotels)
+      ? req.body.hotels.map((h) => ({
+          ...h,
+          checkIn: toDateOnlyString(h.checkIn) ?? h.checkIn,
+          checkOut: toDateOnlyString(h.checkOut) ?? h.checkOut,
+        }))
+      : req.body.hotels;
+  }
   if (req.body.visas !== undefined) booking.visas = req.body.visas;
   if (req.body.transportation !== undefined)
     booking.transportation = req.body.transportation;
@@ -722,8 +742,14 @@ export const updateBooking = async (req, res) => {
     }
   }
   
-  // HOTEL LEGACY FIELD
-  if (req.body.hotel !== undefined) booking.hotel = req.body.hotel;
+  // HOTEL LEGACY FIELD — normalize dates
+  if (req.body.hotel !== undefined) {
+    booking.hotel = {
+      ...req.body.hotel,
+      checkIn: toDateOnlyString(req.body.hotel.checkIn) ?? req.body.hotel.checkIn,
+      checkOut: toDateOnlyString(req.body.hotel.checkOut) ?? req.body.hotel.checkOut,
+    };
+  }
   if (req.body.visa !== undefined) booking.visa = req.body.visa;
 
   // ADDITIONAL FIELDS
